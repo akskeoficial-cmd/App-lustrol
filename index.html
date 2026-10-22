@@ -2164,9 +2164,9 @@ async function dbInsertAdaptive(table, row, action){
 async function reloadHistorial(){
   if (!sb) return false;
   // ACÁ CAMBIAMOS EL NOMBRE DE LA TABLA
-  let r = await sb.from('repartos_historicos').select('*').order('creado_en', { ascending:false }).limit(5000);
-  if (r.error) r = await sb.from('repartos_historicos').select('*').limit(5000);
-  if (r.error){ console.warn('[SUPABASE] repartos_historicos:', r.error.message); return false; }
+  let r = await sb.from('historial_repartos').select('*').order('creado_en', { ascending:false }).limit(5000);
+  if (r.error) r = await sb.from('historial_repartos').select('*').limit(5000);
+  if (r.error){ console.warn('[SUPABASE] historial_repartos:', r.error.message); return false; }
   histData = (r.data || []).map(rowToHist).sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
   return true;
 }
