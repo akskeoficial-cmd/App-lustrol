@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>Panel Operativo · Gerencia &amp; Facturación</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@5/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@5/500.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@5/600.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@5/700.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@5/800.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5/600.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+:root{
+  --bg:#eef1f6; --card:#ffffff; --ink:#0f172a; --muted:#5b6472; --soft:#94a3b8;
+  --line:#e3e8ef; --line2:#eef2f7;
+  --accent:#0f766e; --accent-2:#14b8a6; --accent-soft:#e6f7f4;
+  --navy-1:#0b1524; --navy-2:#0e1c30;
+  --danger:#dc2626; --danger-soft:#fef2f2;
+  --ok:#16a34a; --warn:#d97706;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(15,23,42,.05),0 10px 28px rgba(15,23,42,.06);
+  --sem-verde-bg:#dcfce7; --sem-verde-tx:#166534; --sem-verde-bd:#86efac; --sem-verde-dot:#16a34a;
+  --sem-rojo-bg:#fee2e2;  --sem-rojo-tx:#991b1b;  --sem-rojo-bd:#fca5a5;  --sem-rojo-dot:#dc2626;
+  --sem-azul-bg:#e0f2fe;  --sem-azul-tx:#075985;  --sem-azul-bd:#7dd3fc;  --sem-azul-dot:#0284c7;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--bg); color:var(--ink); font-size:14px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:inherit;font-size:13.5px;color:var(--ink)}
+
+/* ============ LAYOUT ============ */
+.app{display:flex;height:100vh;overflow:hidden}
+.main{flex:1;min-width:0;overflow-y:auto;padding:24px 28px 48px}
+
+.sidebar{
+  width:250px;flex-shrink:0;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,var(--navy-1) 0%,var(--navy-2) 100%);
+  color:#aab6c8;padding:18px 12px 14px;
+  transition:width .28s cubic-bezier(.4,0,.2,1);
+}
+.app.sb-mini .sidebar{width:70px;padding-left:8px;padding-right:8px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 4px 16px;border-bottom:1px solid rgba(255,255,255,.07)}
+.brand-ic{
+  width:38px;height:38px;border-radius:11px;flex-shrink:0;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(135deg,var(--accent-2),var(--accent));
+  box-shadow:0 6px 18px rgba(20,184,166,.35);
+}
+.brand-tx{flex:1;min-width:0}
+.brand-tx strong{display:block;color:#fff;font-size:14px;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
+.brand-tx span{font-size:10.5px;color:#7d8aa0;white-space:nowrap}
+.sb-toggle{
+  color:#7d8aa0;padding:6px;border-radius:9px;flex-shrink:0;display:grid;place-items:center;
+  transition:background .15s,color .15s;
+}
+.sb-toggle:hover{background:rgba(255,255,255,.09);color:#e2e8f0}
+.sb-toggle .ic-expand{display:none}
+.app.sb-mini .sb-toggle .ic-expand{display:block}
+.app.sb-mini .sb-toggle .ic-collapse{display:none}
+.app.sb-mini .brand{flex-direction:column;gap:8px;justify-content:center;padding-left:0;padding-right:0}
+.app.sb-mini .brand-tx{display:none}
+.app.sb-mini .nav-label, .app.sb-mini .storage-note{display:none}
+.app.sb-mini .nav-btn{justify-content:center;padding:11px 0}
+.app.sb-mini .nav-tx, .app.sb-mini .pill{display:none}
+.app.sb-mini .nav-btn.active::before{left:-8px}
+.app.sb-mini .side-foot{align-items:center}
+
+.nav{padding-top:14px;display:flex;flex-direction:column;gap:4px}
+.nav-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#5b6b82;padding:0 8px 6px;font-weight:700}
+.nav-btn{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  padding:9px 8px;border-radius:10px;color:#c3cddb;font-size:12.5px;font-weight:700;
+  position:relative;transition:background .18s,color .18s;line-height:1.25;
+}
+.nav-ico{width:22px;text-align:center;font-size:15px;flex-shrink:0;line-height:1}
+.nav-tx{flex:1;white-space:normal;overflow:visible;text-overflow:unset;word-break:keep-all}
+.nav-btn:hover{background:rgba(255,255,255,.06);color:#e2e8f0}
+.nav-btn.active{background:rgba(20,184,166,.14);color:#5eead4}
+.nav-btn.active::before{
+  content:'';position:absolute;left:-12px;top:8px;bottom:8px;width:3.5px;border-radius:0 4px 4px 0;
+  background:linear-gradient(180deg,var(--accent-2),var(--accent));
+}
+.pill{
+  font-style:normal;font-size:10px;font-weight:800;min-width:20px;text-align:center;
+  padding:2px 6px;border-radius:999px;background:rgba(255,255,255,.09);color:#cbd5e1;flex-shrink:0;
+}
+.nav-btn.active .pill{background:rgba(20,184,166,.22);color:#5eead4}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.storage-note{font-size:10.5px;line-height:1.5;color:#64748b;padding:0 4px;display:flex;align-items:flex-start;gap:7px}
+.storage-note::before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0;margin-top:4px}
+.storage-note.conn-ok{color:#5eead4}
+.storage-note.conn-err{color:#fca5a5}
+.storage-note.conn-wait{color:#93c5fd}
+
+/* ============ TOPBAR (limpia: título + fecha + sincronizar) ============ */
+.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.topbar h1{font-size:25px;font-weight:800;letter-spacing:-.4px}
+.topbar p{color:var(--muted);font-size:13.5px;margin-top:3px}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.today{
+  display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:700;color:#334155;box-shadow:var(--shadow);
+}
+.today svg{color:var(--accent)}
+.reload-btn{
+  display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:8px 15px;font-size:12.5px;font-weight:800;color:var(--accent);
+  box-shadow:var(--shadow);transition:all .15s;
+}
+.reload-btn:hover{border-color:var(--accent-2);background:var(--accent-soft)}
+.reload-btn:disabled{opacity:.55;cursor:wait}
+
+/* ============ VIEWS ============ */
+.view{display:none}
+.view.active{display:block;animation:viewIn .3s ease}
+@keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.layout{display:grid;grid-template-columns:384px minmax(0,1fr);gap:20px;align-items:start}
+.col-form{position:sticky;top:4px}
+.col-reports{display:flex;flex-direction:column;gap:20px;min-width:0}
+
+/* ============ CARDS ============ */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 20px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.card-head h2{font-size:15px;font-weight:800;letter-spacing:-.2px}
+.card-sub{font-size:11.5px;color:var(--muted);font-weight:600}
+.card-body{padding:20px}
+.tag{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:999px}
+.tag.red{color:#b91c1c;background:#fee2e2}
+
+/* ============ CABECERA REPARTO + BARRA AZUL CONSOLIDADA ============ */
+.rep-head{display:flex;flex-direction:column;align-items:stretch;gap:13px}
+.rep-head-title{display:flex;flex-direction:column;gap:2px}
+.rep-head-title h2{font-size:17px}
+.rep-head-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.rep-progress{
+  background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px 15px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+}
+.rep-progress-info{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  font-size:12.5px;font-weight:800;color:#1d4ed8;margin-bottom:8px;
+}
+.rep-progress-info .rep-progress-pct{
+  background:#1d4ed8;color:#fff;border-radius:999px;padding:2px 11px;font-size:12px;font-variant-numeric:tabular-nums;
+}
+.rep-progress-track{height:14px;border-radius:99px;background:#dbeafe;overflow:hidden;border:1px solid #bfdbfe}
+.rep-progress-track i{
+  display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,#60a5fa,#2563eb 55%,#1d4ed8);
+  box-shadow:0 1px 6px rgba(37,99,235,.45);
+  transition:width .4s cubic-bezier(.4,0,.2,1);
+}
+
+/* ============ FORMS ============ */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:6px;color:#334155}
+.req{color:var(--danger)}
+.opt{color:var(--soft);font-weight:600;font-size:11.5px}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;
+  transition:border-color .15s,box-shadow .15s;outline:none;
+}
+.field textarea{resize:vertical;min-height:64px}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--accent-2);box-shadow:0 0 0 3.5px rgba(20,184,166,.15);
+}
+.field .invalid{border-color:var(--danger)!important;box-shadow:0 0 0 3.5px rgba(220,38,38,.12)!important}
+.err{display:none;color:var(--danger);font-size:11.5px;font-weight:600;margin-top:5px}
+.err.show{display:block;animation:shake .3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.tag-select{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--line);border-radius:10px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.tag-select.invalid{border-color:var(--danger);box-shadow:0 0 0 3.5px rgba(220,38,38,.12)}
+.tag-opt{position:relative}
+.tag-opt input{position:absolute;opacity:0;pointer-events:none}
+.tag-opt span{
+  display:inline-flex;align-items:center;gap:7px;padding:5.5px 12px;border-radius:999px;
+  border:1.5px solid var(--line);font-size:12px;font-weight:700;color:#64748b;background:#fff;
+  cursor:pointer;transition:all .15s;user-select:none;
+}
+.tag-opt span i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+.tag-opt span:hover{border-color:var(--c);color:var(--ink)}
+.tag-opt input:checked + span{background:var(--c);border-color:var(--c);color:#fff;box-shadow:0 3px 9px rgba(15,23,42,.18)}
+.tag-opt input:checked + span i{background:#fff}
+
+.btn-primary{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  padding:12px;border-radius:11px;color:#fff;font-size:14px;font-weight:800;letter-spacing:.01em;
+  background:linear-gradient(135deg,var(--accent-2),var(--accent));
+  box-shadow:0 6px 16px rgba(15,118,110,.3);
+  transition:filter .15s,transform .12s,background .3s;
+}
+.btn-primary:hover{filter:brightness(1.07)}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{opacity:.55;cursor:wait}
+.btn-primary.ok{background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 6px 16px rgba(22,163,74,.3)}
+.btn-cancel{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:9px;
+  padding:10px;border-radius:11px;font-size:13px;font-weight:700;color:var(--muted);
+  border:1.5px solid var(--line);background:#fff;transition:all .15s;
+}
+.btn-cancel:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-soft)}
+.edit-banner{
+  display:none;align-items:center;gap:8px;margin-bottom:14px;padding:9px 12px;border-radius:10px;
+  background:#fef3e2;border:1px solid #fde4b6;color:#92400e;font-size:12px;font-weight:700;
+}
+.edit-banner.show{display:flex;animation:viewIn .25s ease}
+.form-hint{margin-top:12px;font-size:11.5px;color:var(--soft);text-align:center;line-height:1.5}
+.form-hint b{color:var(--accent)}
+
+/* ============ FILTERS / CHIPS ============ */
+.filter-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.f-group label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.f-group input{padding:8.5px 12px;border:1.5px solid var(--line);border-radius:9px;outline:none;min-width:158px}
+.f-group input:focus{border-color:var(--accent-2);box-shadow:0 0 0 3px rgba(20,184,166,.14)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.chip{
+  padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;
+  font-size:12.5px;font-weight:700;color:#475569;transition:all .16s;
+}
+.chip:hover{border-color:var(--accent-2);color:var(--accent)}
+.chip:disabled{opacity:.55;cursor:wait}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(15,118,110,.28)}
+.chip.danger:hover{border-color:#fca5a5;color:#b91c1c;background:var(--danger-soft)}
+.chip.armed{background:var(--danger);border-color:var(--danger);color:#fff}
+.chip.archivar{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:800}
+.chip.archivar:hover{background:var(--accent);color:#fff}
+.chip.archivar.armed{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ============ KPIs ============ */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.kpi{display:flex;gap:13px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px 17px;box-shadow:var(--shadow)}
+.kpi-ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;flex-shrink:0;font-size:19px}
+.kpi-ic.teal{background:#e6f7f4}
+.kpi-ic.purple{background:#f3effe}
+.kpi-ic.slate{background:#eef2f7}
+.kpi-ic.blue{background:#e8f1fe}
+.kpi-ic.amber{background:#fef3e2}
+.kpi-ic.pink{background:#fdeef6}
+.kpi-v{font-size:21px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.kpi-l{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:2px}
+
+/* ============ CHARTS ============ */
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.chart-box{position:relative;height:290px}
+.chart-box.tall{height:330px}
+.empty{
+  display:none;height:290px;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  color:var(--soft);text-align:center;padding:20px;
+}
+.empty.tall{height:330px}
+.empty svg{opacity:.55}
+.empty strong{display:block;color:var(--muted);font-size:13.5px}
+.empty span{font-size:12px}
+#barDev{cursor:pointer}
+.dev-detail-grid{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:center}
+.dev-detail-grid .chart-box{height:240px}
+.dev-detail-grid .table-wrap{max-height:240px}
+
+/* ============ CONTROL DE MERCADERÍA ============ */
+.merc-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;align-items:center}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:11px;
+  border:1.5px solid var(--line);background:#fff;font-size:13px;font-weight:700;color:#475569;transition:all .15s;
+}
+.btn-ghost:hover{border-color:var(--accent-2);color:var(--accent)}
+.merc-primary{width:auto;padding:11px 22px}
+.drop-zone{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  padding:34px 24px;border:2px dashed var(--line);border-radius:14px;background:#f8fafc;color:var(--muted);
+  cursor:pointer;transition:all .18s;text-align:center;
+}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent-2);background:var(--accent-soft);color:var(--accent)}
+.drop-zone.busy{opacity:.55;pointer-events:none}
+.drop-zone strong{font-size:14px;color:#334155}
+.drop-zone:hover strong,.drop-zone.dragover strong{color:var(--accent)}
+.drop-zone span{font-size:11.5px;line-height:1.55}
+.repartos-row{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.rep-tab{
+  display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 8px;border-radius:12px;
+  border:1.5px solid var(--line);background:#fff;font-weight:800;font-size:13px;color:#475569;transition:all .16s;position:relative;
+}
+.rep-tab small{font-size:11px;color:var(--soft);font-weight:700}
+.rep-tab:hover{border-color:var(--accent-2);color:var(--accent)}
+.rep-tab.active{background:linear-gradient(135deg,var(--accent-2),var(--accent));border-color:var(--accent);color:#fff;box-shadow:0 6px 16px rgba(15,118,110,.3)}
+.rep-tab.active small{color:rgba(255,255,255,.85)}
+.rep-tab .rep-diff{position:absolute;top:6px;right:8px;width:9px;height:9px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 2.5px #fff}
+
+/* Semáforo de hojas */
+.sector-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.sec-tab{
+  display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;
+  border:1.5px solid var(--line);background:#fff;font-size:12.5px;font-weight:800;color:#475569;
+  transition:all .18s;user-select:none;
+}
+.sec-tab i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sec-tab b{font-variant-numeric:tabular-nums}
+.sec-tab.verde{background:var(--sem-verde-bg);color:var(--sem-verde-tx);border-color:var(--sem-verde-bd)}
+.sec-tab.verde i{background:var(--sem-verde-dot) !important}
+.sec-tab.rojo{background:var(--sem-rojo-bg);color:var(--sem-rojo-tx);border-color:var(--sem-rojo-bd)}
+.sec-tab.rojo i{background:var(--sem-rojo-dot) !important}
+.sec-tab.azul{background:var(--sem-azul-bg);color:var(--sem-azul-tx);border-color:var(--sem-azul-bd)}
+.sec-tab.azul i{background:var(--sem-azul-dot) !important}
+.sec-tab.active{background:transparent !important;border:2.5px solid #2563eb !important;box-shadow:0 0 0 3px rgba(37,99,235,.22) !important;color:#0f172a !important}
+.sec-tab.active.verde{border-color:#16a34a !important;box-shadow:0 0 0 3px rgba(22,163,74,.28) !important;color:var(--sem-verde-tx) !important}
+.sec-tab.active.rojo {border-color:#dc2626 !important;box-shadow:0 0 0 3px rgba(220,38,38,.28) !important;color:var(--sem-rojo-tx) !important}
+.sec-tab.active.azul {border-color:#0284c7 !important;box-shadow:0 0 0 3px rgba(2,132,199,.28) !important;color:var(--sem-azul-tx) !important}
+.sec-tab.active i{background:#0f172a !important}
+.sec-tab.active.verde i{background:var(--sem-verde-dot) !important}
+.sec-tab.active.rojo  i{background:var(--sem-rojo-dot) !important}
+.sec-tab.active.azul  i{background:var(--sem-azul-dot) !important}
+
+.planilla-label{
+  display:inline-flex;align-items:center;gap:8px;background:#f0fdfa;border:1px solid #ccf1ea;color:#115e59;
+  font-weight:800;font-size:12px;padding:7px 14px;border-radius:999px;margin-bottom:14px;flex-wrap:wrap;
+}
+.merc-progress-wrap{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.merc-progress{flex:1;height:8px;border-radius:99px;background:var(--line2);overflow:hidden}
+.merc-progress i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent-2),var(--accent));transition:width .3s}
+.merc-progress-tx{font-size:12px;font-weight:800;color:var(--accent);white-space:nowrap;font-variant-numeric:tabular-nums}
+.chk{width:17px;height:17px;accent-color:var(--accent);cursor:pointer}
+.estado-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
+.st-pend{background:#f1f5f9;color:#64748b}
+.st-ok{background:#dcfce7;color:#15803d}
+.st-diff{background:#fee2e2;color:#b91c1c}
+.st-obs{background:#ffedd5;color:#c2410c}
+tr.estado-controlado{background:#f6fef9}
+tr.estado-controlado:hover{background:#ecfdf3}
+tr.estado-controlado td.cell-nom{text-decoration:line-through;text-decoration-color:#a7f3d0;color:var(--muted)}
+tr.estado-diferencia{background:#fff5f5}
+tr.estado-diferencia:hover{background:#ffecec}
+tr.estado-observado{background:#fff7ed}
+tr.estado-observado:hover{background:#ffedd5}
+.diff-input{width:86px;padding:6px 9px;border:1.5px solid var(--line);border-radius:8px;outline:none;font-weight:700}
+.diff-input:focus{border-color:var(--accent-2);box-shadow:0 0 0 3px rgba(20,184,166,.14)}
+.ubic-tx{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#334155;background:#f8fafc;border:1px solid var(--line2);padding:2px 8px;border-radius:6px;white-space:nowrap}
+
+/* ============ HISTORIAL AGRUPADO POR FECHA ============ */
+.hist-day{border:1.5px solid var(--line);border-radius:14px;background:#fff;margin-bottom:14px;overflow:hidden}
+.hist-day-head{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;
+  background:#f8fafc;border-bottom:1px solid var(--line2);flex-wrap:wrap;transition:background .15s;
+}
+.hist-day-head:hover{background:#f1f5f9}
+.hist-title{font-weight:800;font-size:13.5px}
+.hist-bars{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:13px 16px}
+@media(max-width:700px){.hist-bars{grid-template-columns:1fr}}
+.hist-bar-wrap{display:flex;flex-direction:column;gap:5px;text-align:left;background:none;border:none;padding:6px 8px;font:inherit;border-radius:10px}
+.hist-bar-btn{cursor:pointer;border:1.5px solid transparent;transition:all .15s}
+.hist-bar-btn.has-diff:hover{border-color:#fca5a5;background:#fef2f2}
+.hist-bar-label{font-size:12px;font-weight:800;color:#334155;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.hist-bar{height:12px;border-radius:99px;background:#e2e8f0;overflow:hidden}
+.hist-bar.green i{display:block;height:100%;background:linear-gradient(90deg,#4ade80,#16a34a);border-radius:99px;transition:width .4s}
+.hist-bar.red i{display:block;height:100%;background:linear-gradient(90deg,#f87171,#dc2626);border-radius:99px;transition:width .4s}
+.hist-day-body{
+  padding:13px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;
+  border-top:1px solid var(--line2);
+}
+.hist-rep-card{border:1.5px solid var(--line);border-radius:12px;padding:11px 13px;background:#fff;transition:border-color .15s}
+.hist-rep-card:hover{border-color:var(--accent-2)}
+.hist-metrics{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.hist-diff-panel{padding:4px 16px 14px;border-top:1px dashed #fecaca;background:#fffafa}
+.diff-rep-block{margin-top:12px}
+.diff-rep-title{font-weight:800;font-size:13px;margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hist-empty{padding:26px;text-align:center;color:var(--soft);font-size:13px}
+
+/* ============ CONTROL HÍBRIDO: VOZ + LÁSER + BÚSQUEDA GLOBAL ============ */
+.voice-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.btn-voice{
+  display:inline-flex;align-items:center;gap:9px;padding:13px 20px;border-radius:12px;color:#fff;
+  font-size:13px;font-weight:800;background:linear-gradient(135deg,#f43f5e,#be123c);
+  box-shadow:0 6px 18px rgba(190,18,60,.35);transition:filter .15s,transform .12s;white-space:nowrap;
+}
+.btn-voice:hover{filter:brightness(1.07)}
+.btn-voice:active{transform:scale(.98)}
+.btn-voice.active{animation:pulseVoice 1.3s infinite;background:linear-gradient(135deg,#ef4444,#991b1b)}
+@keyframes pulseVoice{
+  0%{box-shadow:0 0 0 0 rgba(244,63,94,.55)}
+  70%{box-shadow:0 0 0 15px rgba(244,63,94,0)}
+  100%{box-shadow:0 0 0 0 rgba(244,63,94,0)}
+}
+.btn-voice:disabled{opacity:.45;cursor:not-allowed;animation:none}
+.btn-laser{
+  display:inline-flex;align-items:center;gap:8px;padding:13px 20px;border-radius:12px;color:#fff;
+  font-size:13px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+  box-shadow:0 6px 18px rgba(29,78,216,.35);transition:filter .15s,transform .12s,background .2s;white-space:nowrap;
+}
+.btn-laser:hover{filter:brightness(1.08)}
+.btn-laser:active{transform:scale(.98)}
+.btn-laser:not(.active){background:#fff;color:#64748b;border:1.5px solid var(--line);box-shadow:none}
+.search-wrap{position:relative;flex:1;min-width:230px}
+.search-wrap input{
+  width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;outline:none;
+  font-size:13px;font-weight:600;background:#fff;transition:border-color .15s,box-shadow .15s;
+}
+.search-wrap input:focus{border-color:var(--accent-2);box-shadow:0 0 0 3px rgba(20,184,166,.15)}
+.search-results{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1.5px solid var(--line);
+  border-radius:12px;box-shadow:0 18px 44px rgba(2,6,23,.2);z-index:40;max-height:320px;overflow:auto;
+}
+.sr-item{padding:9px 13px;border-bottom:1px solid var(--line2);cursor:pointer}
+.sr-item:last-child{border-bottom:none}
+.sr-item:hover{background:var(--accent-soft)}
+.sr-item.empty{color:var(--soft);cursor:default;font-size:12.5px}
+.sr-hoja{display:inline-block;font-size:10.5px;font-weight:800;color:#075985;background:#e0f2fe;border:1px solid #bae6fd;padding:1px 8px;border-radius:999px;margin-left:6px}
+.voice-status{
+  display:flex;align-items:center;gap:9px;flex:1;min-width:230px;
+  background:#fff1f2;border:1.5px solid #fecdd3;border-radius:10px;padding:9px 13px;
+  font-size:12.5px;font-weight:600;color:#9f1239;
+}
+.vdot{width:10px;height:10px;border-radius:50%;background:#e11d48;flex-shrink:0;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.voice-alert{
+  background:#fef2f2;border:1.5px solid #fca5a5;color:#991b1b;padding:12px 16px;border-radius:12px;
+  font-weight:700;font-size:13px;margin-bottom:14px;animation:shake .4s ease;line-height:1.5;
+}
+
+/* ============ POP-UP RÁPIDO DE CANTIDAD ============ */
+#quickPop{
+  position:fixed;inset:0;z-index:70;background:rgba(2,6,23,.42);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s ease;
+}
+.quick-pop{
+  width:min(470px,94vw);background:#fff;border-radius:18px;box-shadow:0 30px 80px rgba(2,6,23,.45);
+  animation:popIn .18s cubic-bezier(.2,.9,.3,1.2);overflow:hidden;
+}
+.qp-head{display:flex;flex-direction:column;gap:3px;padding:18px 20px 14px;background:linear-gradient(135deg,#0f766e,#115e59);color:#fff}
+.qp-head strong{font-size:15px;font-weight:800;line-height:1.35}
+.qp-head span{font-size:12px;opacity:.85;font-weight:600}
+.qp-body{padding:18px 20px 20px}
+.qp-info{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px;align-items:center}
+.qp-info b{color:var(--ink);font-size:14px}
+.qp-body label{display:block;font-size:12.5px;font-weight:800;margin:10px 0 6px;color:#334155}
+.qp-body input{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;outline:none;font-size:15px;font-weight:700}
+.qp-body input:focus{border-color:var(--accent-2);box-shadow:0 0 0 3px rgba(20,184,166,.15)}
+.qp-actions{display:flex;gap:10px;margin-top:16px}
+.qp-actions .btn-primary{flex:1}
+.qp-actions .btn-cancel{width:auto;margin-top:0;padding:11px 16px}
+
+/* ============ PATENTES Y CHOFERES ============ */
+#patCapture{background:#fff;padding:16px;border-radius:12px;border:1px solid var(--line)}
+.pat-cap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.pat-cap-head strong{font-size:16px;font-weight:800;letter-spacing:-.2px}
+.pat-cap-date{font-size:12px;color:var(--muted);font-weight:700;margin-top:2px}
+.pat-cap-brand{font-size:11px;font-weight:800;color:#0f766e;background:#e6f7f4;border:1px solid #ccf1ea;padding:5px 12px;border-radius:999px}
+.pat-sel{
+  min-width:125px;width:100%;padding:7px 9px;border:1.5px solid var(--line);border-radius:8px;
+  outline:none;font-size:12.5px;font-weight:700;background:#fff;
+}
+.pat-sel:focus{border-color:var(--accent-2);box-shadow:0 0 0 3px rgba(20,184,166,.14)}
+.pat-date{padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;outline:none;font-size:12px;font-weight:700}
+.pat-date:focus{border-color:var(--accent-2)}
+.etiq-group{margin-bottom:16px}
+.etiq-group-title{font-size:12px;font-weight:800;color:#334155;margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+.etiq-chips{display:flex;flex-wrap:wrap;gap:7px}
+.etiq-chip{
+  display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1.5px solid var(--line);
+  border-radius:999px;padding:5px 8px 5px 13px;font-size:12.5px;font-weight:700;color:#334155;
+}
+.etiq-x{
+  width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;
+  color:var(--muted);background:#fff;border:1px solid var(--line);transition:all .15s;padding:0;
+}
+.etiq-x:hover{color:var(--accent);border-color:var(--accent-2)}
+.etiq-x.del:hover{color:var(--danger);border-color:#fca5a5;background:var(--danger-soft)}
+.etiq-x.armed{color:#fff;background:var(--danger);border-color:var(--danger)}
+.etiq-edit-wrap{display:inline-flex;align-items:center;gap:5px}
+.etiq-edit-input{padding:6px 10px;border:1.5px solid var(--accent-2);border-radius:8px;outline:none;font-size:12.5px;font-weight:700;width:160px}
+.etiq-add-row{display:grid;grid-template-columns:200px 1fr auto;gap:10px;align-items:end;margin-bottom:18px}
+@media(max-width:700px){.etiq-add-row{grid-template-columns:1fr}}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px}
+@media(max-width:700px){.cfg-grid{grid-template-columns:1fr}}
+
+/* ============ CATÁLOGO ============ */
+.barras-form-row{display:grid;grid-template-columns:1fr 1fr 1.4fr auto;gap:12px;align-items:end}
+.sb-status-tx{font-size:11.5px;color:var(--soft);font-weight:700}
+.barras-manager{border:1.5px dashed var(--line);border-radius:12px;padding:16px;background:#fff;margin-bottom:16px}
+
+/* ============ TABLES ============ */
+.table-wrap{overflow:auto;max-height:430px}
+table{width:100%;border-collapse:collapse}
+thead th{
+  position:sticky;top:0;background:#f8fafc;z-index:2;text-align:left;
+  font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:800;
+  padding:10px 16px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+tbody td{padding:11px 16px;border-bottom:1px solid var(--line2);font-size:13.5px;vertical-align:middle}
+tbody tr:hover{background:#f8fafc}
+tr.rank-click{cursor:pointer;transition:background .15s}
+tr.active-row{background:var(--accent-soft)!important}
+.empty-row td{color:var(--soft);text-align:center;padding:30px 16px;font-size:13px}
+tfoot td{padding:12px 16px;background:#f0fdfa;font-weight:800;font-size:13.5px;border-top:2px solid #ccf1ea;color:#115e59}
+td.num{font-variant-numeric:tabular-nums;font-weight:700}
+.nowrap{white-space:nowrap}
+.cell-main{font-weight:700}
+.cell-sub{font-size:11.5px;color:var(--soft);margin-top:1px}
+.obs{max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.badges{display:flex;flex-wrap:wrap;gap:5px;max-width:260px}
+.motivo-badge{
+  display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;
+  background:#f1f5f9;font-size:11.5px;font-weight:700;color:#334155;white-space:nowrap;
+}
+.motivo-badge i{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.pctwrap{display:flex;align-items:center;gap:10px;min-width:130px}
+.pctwrap b{font-variant-numeric:tabular-nums;min-width:52px}
+.minibar{flex:1;height:6px;border-radius:99px;background:var(--line2);overflow:hidden}
+.minibar i{display:block;height:100%;border-radius:99px}
+.pos{
+  display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;
+  font-size:12px;font-weight:800;background:#f1f5f9;color:#64748b;
+}
+.pos.p1{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#78350f;box-shadow:0 3px 8px rgba(245,158,11,.4)}
+.pos.p2{background:linear-gradient(135deg,#e2e8f0,#94a3b8);color:#1e293b}
+.pos.p3{background:linear-gradient(135deg,#fdba74,#c2661f);color:#fff7ed}
+.actions{display:flex;gap:4px;white-space:nowrap;flex-wrap:wrap}
+.btn-del,.btn-edit{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:12px;font-weight:700;color:var(--muted);padding:5px 10px;border-radius:8px;
+  border:1px solid transparent;transition:all .15s;white-space:nowrap;
+}
+.btn-edit:hover{background:var(--accent-soft);color:var(--accent)}
+.btn-del:hover{background:var(--danger-soft);color:var(--danger)}
+.btn-del.armed{background:var(--danger-soft);color:#b91c1c;border-color:#fecaca}
+
+/* ============ MODAL ============ */
+.modal-backdrop{
+  position:fixed;inset:0;z-index:50;background:rgba(4,10,22,.58);backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;padding:22px;animation:fadeIn .2s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{
+  width:100%;max-width:820px;background:#fff;border-radius:18px;box-shadow:0 30px 80px rgba(2,6,23,.4);
+  animation:popIn .25s cubic-bezier(.2,.9,.3,1.2);max-height:92vh;display:flex;flex-direction:column;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:none}}
+.modal-head{display:flex;align-items:flex-start;gap:14px;padding:22px 24px 16px;border-bottom:1px solid var(--line2)}
+.modal-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);flex-shrink:0}
+.modal-head h3{font-size:17px;font-weight:800;letter-spacing:-.2px}
+.modal-head p{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+.modal-x{margin-left:auto;color:var(--soft);padding:6px;border-radius:9px;transition:all .15s;flex-shrink:0}
+.modal-x:hover{background:#f1f5f9;color:var(--ink)}
+.modal-body{padding:20px 24px 24px;overflow-y:auto}
+.steps{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.step{font-size:11.5px;font-weight:700;color:#334155;background:#f1f5f9;padding:6px 12px;border-radius:999px}
+.step b{color:var(--accent)}
+.code-wrap{position:relative;border-radius:14px;overflow:hidden;border:1px solid #14243a}
+.code-wrap pre{
+  background:#0b1220;color:#d6e4f0;padding:20px 18px;overflow:auto;max-height:400px;
+  font-family:'JetBrains Mono',monospace;font-size:12.3px;line-height:1.7;white-space:pre;
+}
+.copy-btn{
+  position:absolute;top:12px;right:12px;display:inline-flex;align-items:center;gap:7px;
+  background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:9px;
+  padding:7px 13px;font-size:12px;font-weight:700;transition:all .18s;z-index:2;
+}
+.copy-btn:hover{background:#334155}
+.copy-btn.done{background:#065f46;border-color:#10b981;color:#a7f3d0}
+.modal-foot{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.6}
+
+/* ============ TOASTS ============ */
+.toasts{position:fixed;bottom:22px;right:22px;z-index:80;display:flex;flex-direction:column;gap:10px}
+.toast{
+  display:flex;align-items:center;gap:11px;background:#0f172a;color:#f1f5f9;
+  padding:13px 18px;border-radius:13px;font-size:13.5px;font-weight:600;
+  box-shadow:0 14px 40px rgba(2,6,23,.35);animation:toastIn .3s cubic-bezier(.2,.9,.3,1.2);
+  max-width:360px;border-left:4px solid var(--accent-2);
+}
+.toast.error{border-left-color:#f87171}
+.toast.info{border-left-color:#60a5fa}
+.toast.out{animation:toastOut .3s ease forwards}
+.toast svg{flex-shrink:0}
+.toast.ok svg{color:#34d399}.toast.error svg{color:#f87171}.toast.info svg{color:#93c5fd}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateX(40px)}}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:1180px){ .charts{grid-template-columns:1fr} }
+@media (max-width:1080px){
+  .app{flex-direction:column;height:auto;min-height:100vh;overflow:auto}
+  body{overflow:auto}
+  .main{overflow:visible;padding:20px 18px 44px}
+  .sidebar{width:100% !important;flex-direction:row;align-items:center;gap:10px;padding:10px 14px;flex-wrap:wrap;transition:none}
+  .sb-toggle{display:none}
+  .brand{border-bottom:none;padding:0;flex:0 0 auto}
+  .brand-tx{display:block}
+  .brand-tx span{display:none}
+  .app.sb-mini .brand{flex-direction:row}
+  .nav{padding-top:0;flex-direction:row;gap:6px;flex:1;overflow-x:auto}
+  .nav-label{display:none}
+  .nav-btn{white-space:nowrap;padding:8px 12px}
+  .nav-tx{white-space:nowrap}
+  .nav-btn.active::before{display:none}
+  .app.sb-mini .nav-btn{justify-content:flex-start;padding:8px 12px}
+  .app.sb-mini .nav-tx{display:inline}
+  .app.sb-mini .pill{display:inline-block}
+  .app.sb-mini .side-foot{align-items:center}
+  .side-foot{margin:0;flex-direction:row;align-items:center;gap:10px}
+  .storage-note{display:none}
+  .layout{grid-template-columns:1fr}
+  .col-form{position:static}
+  .kpis{grid-template-columns:1fr}
+  .chips{margin-left:0}
+  .toasts{left:16px;right:16px;bottom:16px}
+  .toast{max-width:none}
+  .rep-head-actions{justify-content:flex-start}
+}
+@media (max-width:900px){ .repartos-row{grid-template-columns:repeat(4,1fr)} .barras-form-row{grid-template-columns:1fr} }
+@media (max-width:640px){ .dev-detail-grid{grid-template-columns:1fr} }
+@media (max-width:560px){ .frow{grid-template-columns:1fr} .topbar{flex-direction:column;align-items:flex-start} .repartos-row{grid-template-columns:repeat(2,1fr)} }
+
+/* ===================== v17 · EXTRA ===================== */
+.sidebar{overflow-y:auto;overflow-x:hidden}
+@media (max-width:1080px){ .sidebar{overflow:visible} }
+
+/* Patentes: celdas más amplias */
+#patTable tbody td{padding:13px 12px}
+.pat-sel{padding:9px 11px;font-size:13.5px;border-radius:10px}
+.pat-date{padding:9px 10px;font-size:13px;border-radius:10px}
+
+/* Multiselección (Zona / Acompañante) */
+.ms-cell{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:150px}
+.ms-chip{
+  display:inline-flex;align-items:center;padding:5px 12px;border-radius:999px;background:var(--accent-soft);
+  color:#115e59;border:1px solid #ccf1ea;font-size:13px;font-weight:800;line-height:1.2;
+}
+.ms-empty{color:var(--soft);font-size:13px;font-weight:700}
+.ms-add{
+  display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px dashed var(--accent-2);
+  border-radius:999px;font-size:12.5px;font-weight:800;color:var(--accent);background:#fff;transition:all .15s;
+}
+.ms-add:hover{background:var(--accent-soft)}
+#msList{border:none;padding:0;gap:10px}
+#msList .tag-opt span{padding:10px 16px;font-size:14px}
+
+/* Ausencias */
+.mot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:10px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+.mot-grid.invalid{border-color:var(--danger);box-shadow:0 0 0 3.5px rgba(220,38,38,.12)}
+.mot-grid .tag-opt span{width:100%;justify-content:flex-start;padding:9px 12px;border-radius:10px;font-size:12.5px}
+.file-row{display:flex;gap:10px;flex-wrap:wrap}
+.file-row .btn-ghost{flex:1;justify-content:center;min-width:140px}
+.aus-file-info{
+  display:flex;align-items:center;gap:10px;margin-top:10px;padding:9px 12px;border-radius:10px;
+  background:#f0fdfa;border:1px solid #ccf1ea;font-size:12.5px;font-weight:700;color:#115e59;
+}
+.aus-file-info span.aus-fname{flex:1;min-width:0;word-break:break-all}
+.aus-thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--line);flex-shrink:0}
+.aus-obs{white-space:normal;word-break:break-word;min-width:160px;max-width:340px;color:var(--muted)}
+a.btn-edit{text-decoration:none}
+.link-gestor{display:inline-flex;margin-top:7px;font-size:12px;font-weight:800;color:var(--accent);padding:2px 0}
+.link-gestor:hover{text-decoration:underline}
+
+/* Patentes · diseño móvil: tarjetas legibles, sin zoom ni scroll horizontal */
+@media (max-width:720px){
+  #patCapture{padding:10px}
+  #patCapture .table-wrap{overflow:visible;max-height:none}
+  #patTable,#patTable tbody,#patTable tr,#patTable td{display:block;width:100%}
+  #patTable thead{display:none}
+  #patTable tr{
+    border:1.5px solid var(--line);border-radius:16px;padding:12px 14px 6px;margin-bottom:14px;
+    background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.06);position:relative;
+  }
+  #patTable tbody td{padding:8px 0;border:none}
+  #patTable td::before{
+    content:attr(data-label);display:block;font-size:11px;font-weight:800;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:5px;
+  }
+  #patTable td[data-label=""]::before{display:none}
+  #patTable td[data-label=""]{position:absolute;top:8px;right:10px;width:auto;padding:0}
+  .pat-sel{font-size:16px;padding:12px 13px;min-width:0}
+  .pat-date{font-size:16px;padding:11px 12px;width:100%}
+  .ms-cell{min-width:0}
+  .ms-chip{font-size:14px;padding:6px 13px}
+  .ms-add{font-size:13.5px;padding:8px 14px}
+}
+</style>
+</head>
+<body>
+<div class="app" id="appRoot">
+
+  <!-- ================= SIDEBAR OSCURA (nombres completos, sin recortes) ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-ic">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 20h18M5 20V9l7-5 7 5v11M9 20v-6h6v6"/>
+        </svg>
+      </div>
+      <div class="brand-tx"><strong>Panel Operativo</strong><span>Gerencia · Facturación</span></div>
+      <button class="sb-toggle" id="sbToggle" title="Plegar / desplegar menú" aria-label="Plegar o desplegar la barra lateral">
+        <svg class="ic-collapse" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/><path d="M4 5v14" opacity=".45"/></svg>
+        <svg class="ic-expand" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav">
+      <span class="nav-label">Módulos</span>
+      <button class="nav-btn active" data-view="nc">
+        <span class="nav-ico">📄</span><span class="nav-tx">Notas de Crédito</span><em class="pill" id="pillNC">0</em>
+      </button>
+      <button class="nav-btn" data-view="desp">
+        <span class="nav-ico">🚛</span><span class="nav-tx">Pedidos y Camiones</span><em class="pill" id="pillDesp">0</em>
+      </button>
+      <button class="nav-btn" data-view="dev">
+        <span class="nav-ico">↩️</span><span class="nav-tx">Devoluciones</span><em class="pill" id="pillDev">0</em>
+      </button>
+      <button class="nav-btn" data-view="merc">
+        <span class="nav-ico">📦</span><span class="nav-tx">Control de Mercadería</span><em class="pill" id="pillMerc">0</em>
+      </button>
+      <button class="nav-btn" data-view="cat">
+        <span class="nav-ico">⚙️</span><span class="nav-tx">Catálogo y Configuración</span><em class="pill" id="pillCat">0</em>
+      </button>
+      <button class="nav-btn" data-view="pat">
+        <span class="nav-ico">🚛</span><span class="nav-tx">Patentes y Choferes</span><em class="pill" id="pillPat">0</em>
+      </button>
+      <button class="nav-btn" data-view="aus">
+        <span class="nav-ico">📅</span><span class="nav-tx">Ausencias</span><em class="pill" id="pillAus">0</em>
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <p class="storage-note conn-wait" id="connNote">Conectando con Supabase…</p>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="viewTitle">Notas de Crédito</h1>
+        <p id="viewSub">Carga de comprobantes con motivos múltiples, análisis y reportes históricos del período.</p>
+      </div>
+      <div class="topbar-right">
+        <button class="reload-btn" id="btnReload" title="Recargar todos los datos desde Supabase">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+          Sincronizar
+        </button>
+        <div class="today">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+            <rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>
+          </svg>
+          <span id="todayLabel"></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= VISTA: NOTAS DE CRÉDITO ================= -->
+    <section id="view-nc" class="view active">
+      <div class="layout">
+
+        <div class="col-form">
+          <div class="card">
+            <div class="card-head"><h2 id="ncFormTitle">Nueva Nota de Crédito</h2><span class="tag">Supabase</span></div>
+            <div class="card-body">
+              <div class="edit-banner" id="ncEditBanner">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5l4 4L8 20l-5 1 1-5L16.5 3.5z"/></svg>
+                Editando registro existente
+              </div>
+              <form id="formNC" novalidate>
+                <div class="field">
+                  <label for="ncCodigo">Código de cliente <span class="req">*</span></label>
+                  <input type="text" id="ncCodigo" maxlength="50" placeholder="Ej: CLI-0045" autocomplete="off">
+                  <small class="err" id="errNCCodigo"></small>
+                </div>
+                <div class="field">
+                  <label for="ncDoc">Número de documento <span class="req">*</span></label>
+                  <input type="text" id="ncDoc" maxlength="255" placeholder="Ej: 0001-00084920" autocomplete="off">
+                  <small class="err" id="errNCNombre"></small>
+                </div>
+                <div class="field">
+                  <label for="ncFecha">Fecha de emisión <span class="req">*</span></label>
+                  <input type="date" id="ncFecha">
+                  <small class="err" id="errNCFecha"></small>
+                </div>
+                <div class="field">
+                  <label>Motivo(s) <span class="req">*</span> <span class="opt">— podés elegir más de uno</span></label>
+                  <div class="tag-select" id="ncMotivosBox"></div>
+                  <small class="err" id="errNCMotivo"></small>
+                </div>
+                <div class="field">
+                  <label for="ncObs">Observaciones <span class="opt">(opcional)</span></label>
+                  <textarea id="ncObs" rows="3" maxlength="500" placeholder="Detalle adicional del comprobante…"></textarea>
+                </div>
+                <button type="button" class="btn-primary" id="btnSaveNC">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 8.8v6.4M8.8 12h6.4"/></svg>
+                  <span>Guardar registro</span>
+                </button>
+                <button type="button" class="btn-cancel" id="cancelNC" hidden>Cancelar edición</button>
+                <p class="form-hint">Los campos con <span style="color:var(--danger)">*</span> son obligatorios. Al guardar, los datos se insertan en <b>Supabase (notas_credito)</b>.</p>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-reports">
+
+          <div class="card">
+            <div class="card-body">
+              <div class="filter-row">
+                <div class="f-group"><label for="ncDesde">Fecha desde</label><input type="date" id="ncDesde"></div>
+                <div class="f-group"><label for="ncHasta">Fecha hasta</label><input type="date" id="ncHasta"></div>
+                <div class="chips" id="ncQuick">
+                  <button class="chip" data-range="month">Este Mes</button>
+                  <button class="chip" data-range="prev">Mes Anterior</button>
+                  <button class="chip" data-range="year">Año Actual</button>
+                  <button class="chip" data-range="all">Todo</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpis">
+            <div class="kpi">
+              <div class="kpi-ic teal">📄</div>
+              <div><div class="kpi-v" id="kpiNCPeriodo">0</div><div class="kpi-l">Comprobantes en el período</div></div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ic purple">📊</div>
+              <div><div class="kpi-v" id="kpiNCTop">—</div><div class="kpi-l">Motivo principal · <span id="kpiNCTopSub">0 menciones</span></div></div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ic slate">🕘</div>
+              <div><div class="kpi-v" id="kpiNCHist">0</div><div class="kpi-l">Total histórico cargado</div></div>
+            </div>
+          </div>
+
+          <div class="charts">
+            <div class="card">
+              <div class="card-head"><h2>Distribución por Motivo</h2><span class="card-sub">% de menciones</span></div>
+              <div class="card-body">
+                <div class="chart-box" id="donutBox"><canvas id="donutNC"></canvas></div>
+                <div class="empty" id="emptyDonut">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.5 4"/></svg>
+                  <strong>Sin datos en el período</strong><span>Cargá notas de crédito para ver la distribución por motivo.</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Cantidad por Motivo</h2><span class="card-sub">Período seleccionado</span></div>
+              <div class="card-body">
+                <div class="chart-box" id="barNCBox"><canvas id="barNC"></canvas></div>
+                <div class="empty" id="emptyBarNC">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M21 20H3"/></svg>
+                  <strong>Sin datos en el período</strong><span>El gráfico de barras se actualizará automáticamente.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>Resumen por Motivo</h2>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <span class="card-sub" id="ncRangeLabel">Período activo</span>
+                <button class="chip" id="btnNcXls" title="Descargar reporte filtrado por Fecha Desde / Hasta (Excel)">⬇ Excel</button>
+                <button class="chip" id="btnNcPdf" title="Generar reporte PDF del período filtrado">🖨 PDF</button>
+              </div>
+            </div>
+            <div class="table-wrap" style="max-height:none">
+              <table>
+                <thead><tr><th>Motivo</th><th style="width:210px">Cantidad de Notas de Crédito</th><th style="width:260px">% del Total</th></tr></thead>
+                <tbody id="tbodyNC"></tbody>
+                <tfoot id="tfootNC"><tr><td>TOTAL GENERAL</td><td class="num" id="ncTotalCell">0</td><td><b>100%</b></td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Historial de Registros</h2><span class="card-sub"><span id="histNCCount">0</span> notas cargadas</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Fecha</th><th>Número de documento</th><th>Motivos</th><th>Observaciones</th><th style="width:150px">Acciones</th></tr></thead>
+                <tbody id="tbodyNCHist"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VISTA: PEDIDOS Y CAMIONES ================= -->
+    <section id="view-desp" class="view">
+      <div class="layout">
+
+        <div class="col-form">
+          <div class="card">
+            <div class="card-head"><h2 id="despFormTitle">Nuevo Despacho de Camión</h2><span class="tag">Supabase</span></div>
+            <div class="card-body">
+              <div class="edit-banner" id="despEditBanner">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5l4 4L8 20l-5 1 1-5L16.5 3.5z"/></svg>
+                Editando registro existente
+              </div>
+              <form id="formDesp" novalidate>
+                <div class="field">
+                  <label for="despChofer">Nombre del chofer <span class="req">*</span></label>
+                  <select id="despChofer">
+                    <option value="" disabled selected>Seleccionar chofer…</option>
+                    <option>David Rodriguez</option>
+                    <option>Gabriel Bento</option>
+                    <option>Israel Villarroel</option>
+                    <option>Martin Ruiz Diaz</option>
+                    <option>Horacio Hudec</option>
+                    <option>Gustavo Barrios</option>
+                    <option>Juan Carlos Bustos</option>
+                    <option>Federico Perez</option>
+                    <option>Claudio Gimenez</option>
+                  </select>
+                  <small class="err" id="errDespChofer"></small>
+                </div>
+                <div class="frow">
+                  <div class="field">
+                    <label for="despFecha">Fecha <span class="req">*</span></label>
+                    <input type="date" id="despFecha">
+                    <small class="err" id="errDespFecha"></small>
+                  </div>
+                  <div class="field">
+                    <label for="despCant">Cantidad de pedidos / boletas <span class="req">*</span></label>
+                    <input type="number" id="despCant" min="0" step="1" placeholder="Ej: 18">
+                    <small class="err" id="errDespCant"></small>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="despObs">Observaciones <span class="opt">(opcional)</span></label>
+                  <textarea id="despObs" rows="3" maxlength="500" placeholder="Detalle adicional del despacho…"></textarea>
+                </div>
+                <button type="button" class="btn-primary" id="btnSaveDesp">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 8.8v6.4M8.8 12h6.4"/></svg>
+                  <span>Registrar carga</span>
+                </button>
+                <button type="button" class="btn-cancel" id="cancelDesp" hidden>Cancelar edición</button>
+                <p class="form-hint">Al registrar, los datos se insertan en <b>Supabase (despachos_camion)</b> y el ranking por chofer se actualiza al instante.</p>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-reports">
+
+          <div class="card">
+            <div class="card-body">
+              <div class="filter-row">
+                <div class="f-group"><label for="despDesde">Fecha desde</label><input type="date" id="despDesde"></div>
+                <div class="f-group"><label for="despHasta">Fecha hasta</label><input type="date" id="despHasta"></div>
+                <div class="chips" id="despQuick">
+                  <button class="chip" data-range="month">Este Mes</button>
+                  <button class="chip" data-range="prev">Mes Anterior</button>
+                  <button class="chip" data-range="year">Año Actual</button>
+                  <button class="chip" data-range="all">Todo</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpis">
+            <div class="kpi">
+              <div class="kpi-ic teal">📦</div>
+              <div><div class="kpi-v" id="kpiDespPedidos">0</div><div class="kpi-l">Pedidos transportados en el período</div></div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ic blue">🚛</div>
+              <div><div class="kpi-v" id="kpiDespDespachos">0</div><div class="kpi-l">Despachos registrados en el período</div></div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ic amber">🏆</div>
+              <div><div class="kpi-v" id="kpiDespTop">—</div><div class="kpi-l">Chofer líder · <span id="kpiDespTopSub">0 despachos</span></div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Ranking Visual · Pedidos por Chofer</h2><span class="card-sub">Top choferes del período</span></div>
+            <div class="card-body">
+              <div class="chart-box tall" id="barDespBox"><canvas id="barDesp"></canvas></div>
+              <div class="empty tall" id="emptyBarDesp">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="6.5" cy="17.5" r="1.9"/><circle cx="17" cy="17.5" r="1.9"/></svg>
+                <strong>Sin despachos en el período</strong><span>Registrá cargas de camiones para ver el ranking por chofer.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Ranking de Choferes</h2><span class="card-sub" id="despRangeLabel">Ordenado de mayor a menor</span></div>
+            <div class="table-wrap" style="max-height:none">
+              <table>
+                <thead><tr><th style="width:60px">Pos.</th><th>Chofer</th><th>Cantidad de Despachos</th><th>Total Pedidos Transportados</th></tr></thead>
+                <tbody id="tbodyDespRank"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Historial de Despachos</h2><span class="card-sub"><span id="histDespCount">0</span> registros cargados</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Fecha</th><th>Chofer</th><th>Pedidos</th><th>Observaciones</th><th style="width:150px">Acciones</th></tr></thead>
+                <tbody id="tbodyDespHist"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VISTA: DEVOLUCIONES ================= -->
+    <section id="view-dev" class="view">
+      <div class="layout">
+
+        <div class="col-form">
+          <div class="card">
+            <div class="card-head"><h2 id="devFormTitle">Nueva Devolución</h2><span class="tag">Supabase</span></div>
+            <div class="card-body">
+              <div class="edit-banner" id="devEditBanner">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5l4 4L8 20l-5 1 1-5L16.5 3.5z"/></svg>
+                Editando registro existente
+              </div>
+              <form id="formDev" novalidate>
+                <div class="field">
+                  <label for="devAcomp">Acompañante <span class="req">*</span></label>
+                  <select id="devAcomp">
+                    <option value="" disabled selected>Seleccionar acompañante…</option>
+                    <option>Acosta</option><option>Perez</option><option>Bustos</option><option>Rojas</option>
+                    <option>Arcolesse</option><option>Gimenes</option><option>Paez</option><option>Cardozo</option>
+                    <option>Lara</option><option>Torres</option>
+                  </select>
+                  <small class="err" id="errDevAcomp"></small>
+                </div>
+                <div class="frow">
+                  <div class="field">
+                    <label for="devCodigo">Código de cliente <span class="req">*</span></label>
+                    <input type="text" id="devCodigo" maxlength="50" placeholder="Ej: CLI-0045" autocomplete="off">
+                    <small class="err" id="errDevCodigo"></small>
+                  </div>
+                  <div class="field">
+                    <label for="devFecha">Fecha de emisión <span class="req">*</span></label>
+                    <input type="date" id="devFecha">
+                    <small class="err" id="errDevFecha"></small>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Motivo(s) <span class="req">*</span> <span class="opt">— podés elegir más de uno</span></label>
+                  <div class="tag-select" id="devMotivosBox"></div>
+                  <small class="err" id="errDevMotivo"></small>
+                </div>
+                <div class="field">
+                  <label for="devObs">Observaciones <span class="opt">(opcional)</span></label>
+                  <textarea id="devObs" rows="3" maxlength="500" placeholder="Detalle adicional de la devolución…"></textarea>
+                </div>
+                <button type="button" class="btn-primary" id="btnSaveDev">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 8.8v6.4M8.8 12h6.4"/></svg>
+                  <span>Guardar Devolución</span>
+                </button>
+                <button type="button" class="btn-cancel" id="cancelDev" hidden>Cancelar edición</button>
+                <p class="form-hint">Al guardar, los datos se insertan en <b>Supabase (devoluciones)</b> y los reportes se actualizan al instante.</p>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-reports">
+
+          <div class="card">
+            <div class="card-body">
+              <div class="filter-row">
+                <div class="f-group"><label for="devDesde">Fecha desde</label><input type="date" id="devDesde"></div>
+                <div class="f-group"><label for="devHasta">Fecha hasta</label><input type="date" id="devHasta"></div>
+                <div class="chips" id="devQuick">
+                  <button class="chip" data-range="month">Este Mes</button>
+                  <button class="chip" data-range="prev">Mes Anterior</button>
+                  <button class="chip" data-range="year">Año Actual</button>
+                  <button class="chip" data-range="all">Todo</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpis">
+            <div class="kpi">
+              <div class="kpi-ic pink">↩️</div>
+              <div><div class="kpi-v" id="kpiDevPeriodo">0</div><div class="kpi-l">Devoluciones en el período</div></div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ic amber">🏆</div>
+              <div><div class="kpi-v" id="kpiDevTop">—</div><div class="kpi-l">Acompañante líder · <span id="kpiDevTopSub">0 devoluciones</span></div></div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ic slate">🕘</div>
+              <div><div class="kpi-v" id="kpiDevHist">0</div><div class="kpi-l">Total histórico cargado</div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Ranking General · Devoluciones por Acompañante</h2><span class="card-sub">Hacé clic en una barra o fila para ver el detalle</span></div>
+            <div class="card-body">
+              <div class="chart-box tall" id="barDevBox"><canvas id="barDev"></canvas></div>
+              <div class="empty tall" id="emptyBarDev">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15L4 10l5-5"/><path d="M4 10h11a5 5 0 0 1 5 5v2"/></svg>
+                <strong>Sin devoluciones en el período</strong><span>Cargá devoluciones para ver el ranking por acompañante.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Ranking de Acompañantes</h2><span class="card-sub" id="devRangeLabel">Clic en una fila para abrir el detalle</span></div>
+            <div class="table-wrap" style="max-height:none">
+              <table>
+                <thead><tr><th style="width:60px">Pos.</th><th>Acompañante</th><th>Devoluciones</th><th style="width:260px">% del Total</th></tr></thead>
+                <tbody id="tbodyDevRank"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card" id="devDetailCard" hidden>
+            <div class="card-head">
+              <div>
+                <h2 id="devDetailTitle">Detalle · —</h2>
+                <span class="card-sub" id="devDetailSub"></span>
+              </div>
+              <button class="chip" id="devBackBtn">← Ver todos los acompañantes</button>
+            </div>
+            <div class="card-body">
+              <div class="dev-detail-grid">
+                <div class="chart-box"><canvas id="donutDevDetail"></canvas></div>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Motivo</th><th>Cantidad</th><th style="width:180px">%</th></tr></thead>
+                    <tbody id="tbodyDevDetail"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Historial de Devoluciones</h2><span class="card-sub"><span id="histDevCount">0</span> registros cargados</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Fecha</th><th>Acompañante</th><th>Código de cliente</th><th>Motivos</th><th>Observaciones</th><th style="width:150px">Acciones</th></tr></thead>
+                <tbody id="tbodyDevHist"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VISTA: CONTROL DE MERCADERÍA ================= -->
+    <section id="view-merc" class="view">
+      <div class="col-reports">
+
+        <div class="card">
+          <div class="card-head"><h2>Cargar Planilla Consolidada</h2><span class="tag">Importación PDF / CSV</span></div>
+          <div class="card-body">
+            <div class="drop-zone" id="mercDrop">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-4-4z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h4"/>
+              </svg>
+              <strong id="dropTx">Arrastrá la planilla consolidada acá (PDF, CSV o TXT)</strong>
+              <span id="dropSub">o hacé clic para seleccionar el archivo · El Reparto se extrae de <b>"Observaciones: N SUR"</b> (asignación incondicional) · <b>Cada página del PDF genera una Planilla independiente</b> (Hoja 1, Hoja 2…) que se inserta en <b>Supabase (control_mercaderia)</b> en el orden exacto</span>
+            </div>
+            <input type="file" id="mercFile" accept=".pdf,.csv,.txt,.tsv" hidden>
+            <p class="form-hint">Extracción: cada código <b>ART-… / L-…</b> inicia un registro · nombre completo = texto <b>entre Código y Ubicación</b> · <b>"Cant. Total"</b> como entero con <b>parseInt</b> · la Ubicación se muestra tal cual (solo informativa).</p>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpi-ic teal">📦</div>
+            <div><div class="kpi-v" id="kpiMercTotal">0</div><div class="kpi-l">Artículos cargados en total</div></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic purple">✅</div>
+            <div><div class="kpi-v" id="kpiMercCtrl">0</div><div class="kpi-l">Controlados · <span id="kpiMercCtrlSub">0%</span></div></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic amber">🚛</div>
+            <div><div class="kpi-v" id="kpiMercRep">0</div><div class="kpi-l">Repartos con planillas · de 7</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Repartos</h2><span class="card-sub">7 repartos independientes · seleccioná uno para trabajar</span></div>
+          <div class="card-body">
+            <div class="repartos-row" id="repartosRow"></div>
+          </div>
+        </div>
+
+        <!-- ============ HISTORIAL DE REPARTOS AUDITADOS (AGRUPADO POR FECHA) ============ -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>📜 Historial de Repartos Auditados</h2>
+              <span class="card-sub" id="histCountSub">0 auditorías guardadas</span>
+            </div>
+            <button class="chip" id="btnHistToggle">Desplegar historial</button>
+          </div>
+          <div class="card-body" id="histBody" hidden>
+            <div class="filter-row">
+              <div class="f-group"><label for="histDesde">Fecha desde</label><input type="date" id="histDesde"></div>
+              <div class="f-group"><label for="histHasta">Fecha hasta</label><input type="date" id="histHasta"></div>
+              <div class="chips">
+                <button class="chip" id="histClear">Todo el histórico</button>
+              </div>
+            </div>
+            <div id="histList" style="margin-top:16px"></div>
+          </div>
+        </div>
+
+        <!-- ============ TRABAJO DE REPARTO (BARRA AZUL CONSOLIDADA) ============ -->
+        <div class="card">
+          <div class="card-head rep-head">
+            <div class="rep-head-title">
+              <h2 id="mercRepartoTitle">Reparto 1</h2>
+              <span class="card-sub" id="mercRepartoSub">Sin planillas cargadas</span>
+            </div>
+
+            <!-- BARRA AZUL — PROGRESO GENERAL CONSOLIDADO DEL REPARTO (todas las hojas) -->
+            <div class="rep-progress" id="repProgressWrap" hidden>
+              <div class="rep-progress-info">
+                <span id="repProgressTx">Progreso General del Reparto: 0 de 0 controlados (0%)</span>
+                <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <span id="repProgressDiff"></span>
+                  <span class="rep-progress-pct" id="repProgressPct">0%</span>
+                </span>
+              </div>
+              <div class="rep-progress-track" title="Progreso general del reparto (suma de todas las planillas/hojas)">
+                <i id="repProgressFill" style="width:0%"></i>
+              </div>
+            </div>
+
+            <div class="rep-head-actions">
+              <button class="chip archivar" id="btnArchivar" hidden>🗂 Finalizar y Archivar Control de Reparto</button>
+              <button class="chip danger" id="btnVaciarReparto" hidden>Vaciar reparto</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="voice-alert" id="voiceAlert" hidden></div>
+            <div class="voice-row">
+              <button type="button" class="btn-voice" id="btnVoice">🎙️ Iniciar Control por Voz</button>
+              <button type="button" class="btn-laser active" id="btnLaser" title="Lector láser HID (modo teclado): escaneá y confirmá la cantidad">🔦 Lector Láser: ON</button>
+              <div class="search-wrap">
+                <input type="text" id="mercSearch" placeholder="🔍 Búsqueda GLOBAL del reparto: nombre, código o barras… (Enter = abrir/escanear)" autocomplete="off">
+                <div class="search-results" id="mercSearchRes" hidden></div>
+              </div>
+            </div>
+            <div class="voice-status" id="voiceStatus" hidden style="margin:-6px 0 14px"><span class="vdot"></span><span id="voiceStatusTxt"></span></div>
+            <div class="sector-tabs" id="hojaTabs"></div>
+            <div class="planilla-label" id="planillaLabel" hidden></div>
+            <!-- Barra VERDE: progreso individual de la planilla/hoja activa -->
+            <div class="merc-progress-wrap" id="mercProgWrap" hidden>
+              <div class="merc-progress"><i id="mercProgFill" style="width:0%"></i></div>
+              <span class="merc-progress-tx" id="mercProgTx">0 de 0 controlados</span>
+            </div>
+            <div class="table-wrap" style="max-height:520px">
+              <table>
+                <thead><tr>
+                  <th style="width:52px">Control</th><th>Código</th><th>Nombre del Artículo</th><th>Ubicación</th>
+                  <th>Cantidad Total</th><th>Contado</th><th>Unidades</th><th>Stock Sucursal</th><th>Estado</th><th style="width:130px">Acción</th>
+                </tr></thead>
+                <tbody id="tbodyMerc"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="mercDiffCard" hidden>
+          <div class="card-head">
+            <div>
+              <h2 id="diffTitleTx" style="color:#b91c1c">⚠ Diferencias y Observaciones Pendientes</h2>
+              <span class="card-sub" id="diffSub">El rojo permanece hasta corregir la cantidad o justificar con una observación. "Marcar conforme" lo pasa a verde.</span>
+            </div>
+            <span class="tag red" id="diffCountTag">0</span>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap" style="max-height:380px">
+              <table>
+                <thead><tr>
+                  <th>Planilla</th><th>Código</th><th>Artículo</th><th>Ubicación</th>
+                  <th>Cant. Total</th><th>Contado</th><th style="width:170px">Observación</th><th>Diff.</th><th style="width:250px">Acciones</th>
+                </tr></thead>
+                <tbody id="tbodyDiff"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= VISTA: CATÁLOGO Y CONFIGURACIÓN ================= -->
+    <section id="view-cat" class="view">
+      <div class="col-reports">
+
+        <div class="card">
+          <div class="card-head"><h2>⚙️ Configuración General</h2><span class="tag">Supabase</span></div>
+          <div class="card-body">
+            <div class="cfg-grid">
+              <div>
+                <div class="card-sub">Proyecto conectado</div>
+                <div style="font-weight:800;font-size:13.5px;word-break:break-all">wcdzvtghzxbgvnkoyaha.supabase.co</div>
+              </div>
+              <div>
+                <div class="card-sub">Estado de la conexión</div>
+                <div id="cfgStatus" style="font-weight:800;font-size:13.5px">—</div>
+              </div>
+            </div>
+            <div class="merc-actions">
+              <button class="chip" id="btnCfgReload">⟳ Sincronizar todo ahora</button>
+              <button class="chip" id="btnCfgSql">🧾 Ver Script SQL para Supabase</button>
+            </div>
+            <p class="form-hint" style="text-align:left;margin-top:14px">Tablas utilizadas: <b>notas_credito</b> · <b>despachos_camion</b> · <b>devoluciones</b> · <b>control_mercaderia</b> · <b>catalogo_barras</b> · <b>historial_repartos</b> · <b>etiquetas_patentes</b> · <b>asignacion_patentes</b> · <b>etiquetas_ausencias</b> · <b>ausencias</b>. Si falta alguna, ejecutá el Script SQL completo en el SQL Editor de Supabase.</p>
+          </div>
+        </div>
+
+        <!-- CATÁLOGO DE CÓDIGOS DE BARRAS (movido acá — panel colapsado por defecto) -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Catálogo de Códigos de Barras</h2>
+              <span class="card-sub" id="barrasCount">0 códigos mapeados</span>
+              <div class="sb-status-tx" id="sbStatus" style="margin-top:3px">tabla catalogo_barras · Supabase</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="chip" id="btnBarrasToggle" title="Desplegar / plegar el catálogo completo">⚙️ Gestionar / Ver Catálogo de Códigos de Barras</button>
+              <button class="chip" id="btnSbPull" title="SELECT: recargar todo desde Supabase">⟳ Recargar datos</button>
+              <button class="chip" id="btnSbPush" title="UPSERT masivo del catálogo a Supabase">⬆ Sincronizar catálogo</button>
+            </div>
+          </div>
+          <div class="card-body" id="barrasPanel" hidden>
+
+            <div class="barras-manager">
+              <div class="barras-form-row">
+                <div class="field" style="margin:0">
+                  <label for="barCodigo">Código de Artículo <span class="req">*</span></label>
+                  <input type="text" id="barCodigo" maxlength="100" placeholder="Ej: ART-L-01142" autocomplete="off">
+                </div>
+                <div class="field" style="margin:0">
+                  <label for="barBarras">Código de Barras EAN/GTIN <span class="req">*</span></label>
+                  <input type="text" id="barBarras" maxlength="60" placeholder="Ej: 7791234567890" autocomplete="off">
+                </div>
+                <div class="field" style="margin:0">
+                  <label for="barDesc">Descripción <span class="opt">(opcional)</span></label>
+                  <input type="text" id="barDesc" maxlength="255" placeholder="Ej: LAVANDINA 55 DE 5 LITROS" autocomplete="off">
+                </div>
+                <button type="button" class="btn-primary" id="btnBarAdd" style="width:auto;padding:10px 20px">➕ Agregar</button>
+              </div>
+
+              <div class="field" style="margin-top:16px;margin-bottom:0">
+                <label for="barrasBulk">Importación masiva — pegá desde Excel/ERP (columnas: Código Artículo · Código Barras · Descripción)</label>
+                <textarea id="barrasBulk" rows="4" placeholder="ART-L-01142&#9;7791234567890&#9;LAVANDINA 55 DE 5 LITROS&#10;ART-L-02971&#9;7791234567891&#9;TOALLA BLANCA SCOTT AIRFLEX"></textarea>
+                <div class="merc-actions" style="margin-top:10px">
+                  <button type="button" class="btn-ghost" id="btnBarrasFile">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+                    Archivo CSV/TXT
+                  </button>
+                  <input type="file" id="barrasFile" accept=".csv,.txt,.tsv" hidden>
+                  <button type="button" class="btn-primary merc-primary" id="btnBarrasImport">Importar al catálogo</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="field" style="margin:0 0 10px">
+              <input type="text" id="barrasFilter" placeholder="🔎 Filtrar catálogo por código de artículo, barras o descripción…" autocomplete="off">
+            </div>
+            <div class="table-wrap" style="max-height:320px">
+              <table>
+                <thead><tr><th>Código Artículo</th><th>Código de Barras</th><th>Descripción</th><th style="width:100px">Acción</th></tr></thead>
+                <tbody id="tbodyBarras"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= VISTA: PATENTES Y CHOFERES ================= -->
+    <section id="view-pat" class="view">
+      <div class="col-reports">
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>🚛 Patentes y Choferes — Hoja de Ruta Diaria</h2>
+              <span class="card-sub" id="patSub">0 filas · etiquetas desde Supabase (etiquetas_patentes)</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="chip" id="btnPatCopy" title="Copiar la planilla como imagen (para WhatsApp Web)">📋 Copiar Imagen al Portapapeles</button>
+              <button class="chip" id="btnPatPng" title="Descargar la planilla como .png">📥 Descargar Imagen</button>
+              <button class="chip archivar" id="btnPatSave" title="Registrar en asignacion_patentes (Supabase)">💾 Guardar Planilla del Día</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- Nodo capturado por html2canvas -->
+            <div id="patCapture">
+              <div class="pat-cap-head">
+                <div>
+                  <strong>Hoja de Ruta Diaria · Camiones y Personal</strong>
+                  <div class="pat-cap-date" id="patCapDate">—</div>
+                </div>
+                <div class="pat-cap-brand">Panel Operativo · Logística</div>
+              </div>
+              <div class="table-wrap" style="max-height:none">
+                <table id="patTable">
+                  <thead><tr>
+                    <th>Camión / Patente</th><th>Reparto</th><th>Zona</th><th>Chofer</th><th>Acompañante</th><th>Fecha</th>
+                    <th data-html2canvas-ignore="true" style="width:70px">Acción</th>
+                  </tr></thead>
+                  <tbody id="tbodyPat"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="merc-actions">
+              <button type="button" class="btn-primary merc-primary" id="btnPatAddRow">➕ Agregar fila</button>
+              <span class="card-sub">Los selectores se nutren de las Etiquetas Personalizables (tabla <b>etiquetas_patentes</b>).</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>🏷 Etiquetas Personalizables</h2>
+              <span class="card-sub" id="etiqCountSub">Sincronizadas en etiquetas_patentes · Supabase</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="chip" id="btnEtiqSeed" hidden>💾 Guardar predeterminadas en Supabase</button>
+              <button class="chip" id="btnEtiqToggle" aria-expanded="false">⚙️ Administrar Etiquetas</button>
+            </div>
+          </div>
+          <div class="card-body" id="etiqBody" hidden>
+            <div class="etiq-add-row">
+              <div class="field" style="margin:0">
+                <label for="etiqCat">Categoría</label>
+                <select id="etiqCat">
+                  <option value="patente">Camión / Patente</option>
+                  <option value="reparto">Reparto</option>
+                  <option value="zona">Zona</option>
+                  <option value="chofer">Chofer</option>
+                  <option value="acompanante">Acompañante</option>
+                </select>
+              </div>
+              <div class="field" style="margin:0">
+                <label for="etiqTexto">Texto de la etiqueta <span class="req">*</span></label>
+                <input type="text" id="etiqTexto" maxlength="150" placeholder="Ej: AB 638 PY / SUR / Juan Pérez" autocomplete="off">
+              </div>
+              <button type="button" class="btn-primary" id="btnEtiqAdd" style="width:auto;padding:10px 20px">➕ Agregar</button>
+            </div>
+            <div id="etiqGroups"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  
+    <!-- ================= VISTA: AUSENCIAS ================= -->
+    <section id="view-aus" class="view">
+      <div class="layout">
+
+        <div class="col-form">
+          <div class="card">
+            <div class="card-head"><h2>📅 Nueva Ausencia</h2><span class="tag">Supabase</span></div>
+            <div class="card-body">
+              <form id="formAus" novalidate>
+                <div class="field">
+                  <label for="ausPersona">👤 Nombre y Apellido <span class="req">*</span></label>
+                  <select id="ausPersona"><option value="" disabled selected>Seleccionar nombre…</option></select>
+                  <small class="err" id="errAusPersona"></small>
+                  <button type="button" class="link-gestor" id="btnAusGestor">⚙️ Agregar / editar / quitar nombres y motivos</button>
+                </div>
+                <div class="field">
+                  <label>📋 Motivo de Ausencia <span class="req">*</span></label>
+                  <div class="mot-grid" id="ausMotivosBox"></div>
+                  <small class="err" id="errAusMotivo"></small>
+                </div>
+                <div class="field">
+                  <label for="ausObs">📝 Observación <span class="opt">(opcional)</span></label>
+                  <textarea id="ausObs" rows="3" maxlength="500" placeholder="Detalle adicional de la ausencia…"></textarea>
+                </div>
+                <div class="field">
+                  <label for="ausFecha">📅 Fecha <span class="req">*</span></label>
+                  <input type="date" id="ausFecha">
+                  <small class="err" id="errAusFecha"></small>
+                </div>
+                <div class="field">
+                  <label>📎 Comprobante <span class="opt">(opcional · PDF o imagen)</span></label>
+                  <div class="file-row">
+                    <button type="button" class="btn-ghost" id="btnAusAttach">📎 Adjuntar PDF / imagen</button>
+                    <button type="button" class="btn-ghost" id="btnAusCam">📷 Tomar foto</button>
+                  </div>
+                  <input type="file" id="ausFileAttach" accept="application/pdf,image/*" hidden>
+                  <input type="file" id="ausFileCam" accept="image/*" capture="environment" hidden>
+                  <div class="aus-file-info" id="ausFileInfo" hidden></div>
+                </div>
+                <button type="button" class="btn-primary" id="btnSaveAus">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 8.8v6.4M8.8 12h6.4"/></svg>
+                  <span>Registrar ausencia</span>
+                </button>
+                <p class="form-hint">Al registrar, los datos se insertan en <b>Supabase (ausencias)</b> y el comprobante se guarda en el bucket <b>comprobantes_ausencias</b>.</p>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-reports">
+
+          <div class="card" id="ausEtiqCard" hidden>
+            <div class="card-head">
+              <div>
+                <h2>⚙️ Nombres y Motivos de Ausencia</h2>
+                <span class="card-sub" id="ausEtiqSub">Sincronizados en etiquetas_ausencias · Supabase</span>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="chip" id="btnAusSeed" hidden>💾 Guardar predeterminadas en Supabase</button>
+                <button class="chip" id="btnAusEtiqClose">✖ Cerrar</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="etiq-add-row">
+                <div class="field" style="margin:0">
+                  <label for="ausEtiqCat">Categoría</label>
+                  <select id="ausEtiqCat">
+                    <option value="persona">Nombre y Apellido</option>
+                    <option value="motivo">Motivo de Ausencia</option>
+                  </select>
+                </div>
+                <div class="field" style="margin:0">
+                  <label for="ausEtiqTexto">Texto de la etiqueta <span class="req">*</span></label>
+                  <input type="text" id="ausEtiqTexto" maxlength="150" placeholder="Ej: Juan Pérez / Licencia médica" autocomplete="off">
+                </div>
+                <button type="button" class="btn-primary" id="btnAusEtiqAdd" style="width:auto;padding:10px 20px">➕ Agregar</button>
+              </div>
+              <div id="ausEtiqGroups"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Historial de Ausencias</h2><span class="card-sub" id="ausHistSub">Elegí el rango de fechas</span></div>
+            <div class="card-body">
+              <div class="filter-row">
+                <div class="f-group"><label for="ausDesde">Fecha desde <span class="req">*</span></label><input type="date" id="ausDesde"></div>
+                <div class="f-group"><label for="ausHasta">Fecha hasta <span class="req">*</span></label><input type="date" id="ausHasta"></div>
+                <div class="chips" id="ausQuick">
+                  <button class="chip" data-range="month">Este Mes</button>
+                  <button class="chip" data-range="prev">Mes Anterior</button>
+                  <button class="chip" data-range="30">Últimos 30 días</button>
+                </div>
+              </div>
+            </div>
+            <div class="table-wrap" style="max-height:none">
+              <table>
+                <thead><tr><th>Fecha</th><th>Nombre y Apellido</th><th>Motivo</th><th>Observación</th><th>Comprobante</th><th style="width:110px">Acción</th></tr></thead>
+                <tbody id="tbodyAus"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ================= POP-UP RÁPIDO DE CANTIDAD ================= -->
+<div id="quickPop" hidden>
+  <div class="quick-pop" role="dialog" aria-modal="true" aria-labelledby="qpNombre">
+    <div class="qp-head">
+      <strong id="qpNombre">—</strong>
+      <span id="qpCodigo">—</span>
+    </div>
+    <div class="qp-body">
+      <div class="qp-info">
+        <span>Requerido (Cant. Total): <b id="qpEsperado">0</b></span>
+        <span>Contado actual: <b id="qpContado">0</b></span>
+        <span id="qpEstado"></span>
+      </div>
+      <label for="qpCantidad">Cantidad contada físicamente <span class="req">*</span></label>
+      <input type="number" id="qpCantidad" min="0" step="1" inputmode="numeric" autocomplete="off">
+      <label for="qpObs">Observación / justificación <span class="opt">(opcional — deja el ítem "Observado" en naranja)</span></label>
+      <input type="text" id="qpObs" maxlength="200" placeholder='Ej: "Sin stock en rack", "Bidón abollado", "Incompleto"'>
+      <div class="qp-actions">
+        <button type="button" class="btn-cancel" id="qpCancel">Cancelar (Esc)</button>
+        <button type="button" class="btn-primary" id="qpOk">Confirmar (Enter)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL DETALLE DE AUDITORÍA ================= -->
+<div class="modal-backdrop" id="histModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="histModalTitle" style="max-width:1020px">
+    <div class="modal-head">
+      <div class="modal-ic">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7h18v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7z"/><path d="M3 7l2-4h14l2 4"/><path d="M9 12h6"/>
+        </svg>
+      </div>
+      <div>
+        <h3 id="histModalTitle">Auditoría</h3>
+        <p id="histModalSub"></p>
+      </div>
+      <button class="modal-x" id="histModalClose" aria-label="Cerrar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;line-height:1.6"><b>Observaciones de la auditoría:</b> <span id="histResumenObs"></span></p>
+      <div class="table-wrap" style="max-height:52vh">
+        <table>
+          <thead><tr><th>Hoja</th><th>Código</th><th>Artículo</th><th>Ubicación</th><th>Cant. Total</th><th>Contado</th><th>Diff.</th><th>Estado</th></tr></thead>
+          <tbody id="tbodyHistDetail"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL SQL ================= -->
+<div class="modal-backdrop" id="sqlModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sqlTitle">
+    <div class="modal-head">
+      <div class="modal-ic">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5.5" rx="7" ry="2.8"/><path d="M5 5.5v6.5c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8V5.5"/><path d="M5 12v6.5c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8V12"/>
+        </svg>
+      </div>
+      <div>
+        <h3 id="sqlTitle">Script SQL para Supabase</h3>
+        <p>Estructura completa: <b>notas_credito</b>, <b>despachos_camion</b>, <b>devoluciones</b>, <b>control_mercaderia</b>, <b>catalogo_barras</b>, <b>historial_repartos</b>, <b>etiquetas_patentes</b> y <b>asignacion_patentes</b>, con índices y políticas RLS.</p>
+      </div>
+      <button class="modal-x" id="closeSql" aria-label="Cerrar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="steps">
+        <span class="step"><b>1.</b> Abrí tu proyecto en Supabase</span>
+        <span class="step"><b>2.</b> Ingresá al <b>SQL Editor</b></span>
+        <span class="step"><b>3.</b> Pegá el script y ejecutá <b>RUN</b></span>
+      </div>
+      <div class="code-wrap">
+        <button class="copy-btn" id="copySql">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span id="copySqlTxt">Copiar script</span>
+        </button>
+<pre id
